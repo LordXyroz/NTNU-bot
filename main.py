@@ -103,6 +103,13 @@ async def role_not_found(member):
   await channel.send(msg.format(name=member.mention))
 
 
+# Name to short message to user
+async def name_too_short(member):
+  msg = "{name} Your name is too short, we need atleast a first and last name.\nType !help for an admin"
+  channel = await client.fetch_channel(channel_ID_welcome)
+  await channel.send(msg.format(name=member.mention))
+
+
 # Edit the member's nickname and roles
 async def edit_member_name_role(message):
   member_roles = message.author.roles
@@ -132,12 +139,20 @@ async def edit_member_name_role(message):
       return
 
     help = regex.search("!help", message.content, regex.IGNORECASE)
+
     if help:
       await call_admin()
+    elif split_string[1] == '':
+      return
     else:
       await role_not_found(message.author)
 
     return  # Return out so we don't edit with wrong values
+
+  check_name = split_string[name_index].split(' ')
+  if len(check_name) <= 1:
+    await name_too_short(message.author)
+    return
   
   member_roles.append(role_found)
 
