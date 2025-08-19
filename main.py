@@ -7,6 +7,7 @@ from discord.ext import commands
 # Set intents for member management
 intents = discord.Intents.default()
 intents.members = True
+intents.message_content = True
 
 client = commands.Bot(command_prefix="", intents=intents)
 
@@ -111,7 +112,8 @@ async def name_too_short(member):
 
 
 # Edit the member's nickname and roles
-async def edit_member_name_role(message):
+async def handle_message(message):
+  print("Handling message: ", message)
   member_roles = message.author.roles
   is_unnamed = False
 
@@ -119,10 +121,12 @@ async def edit_member_name_role(message):
     if role.name == "Unnamed":
       is_unnamed = True
       member_roles.remove(role)
+      print("Remove unnamed and set trigger for further handling")
       break
 
   # Return early if member role isn't Unnamed (has gotten a class)
   if not is_unnamed:
+    print("Member is not Unnamed and has gotten a role, skipping handling")
     return
 
   guild_roles = message.guild.roles
@@ -135,29 +139,37 @@ async def edit_member_name_role(message):
   if not role_found:
     match = regex.search("staff", message.content, regex.IGNORECASE)
     if match:
+      print("Staff has been mentioned, trigger staff_call_admin")
       await staff_call_admin()
       return
 
     help = regex.search("!help", message.content, regex.IGNORECASE)
 
     if help:
+      print("Help is called, trigger call_admin")
       await call_admin()
     elif split_string[1] == '':
+      print("We should not be here, something went wrong!")
+      await something_went_wrong()
       return
     else:
+      print("Role could not be found, trigger role_not_found")
       await role_not_found(message.author)
 
     return  # Return out so we don't edit with wrong values
 
   check_name = split_string[name_index].split(' ')
   if len(check_name) <= 1:
+    print("Name to short, trigger name_too_short")
     await name_too_short(message.author)
     return
   
+  print("Role has been checked, adding to member roles")
   member_roles.append(role_found)
 
   # Try to edit the member with new role and nickname
   try:
+    print("Try editing member with new nickname and roles")
     await message.author.edit(nick=split_string[name_index].lstrip(), roles=member_roles)
   except discord.Forbidden as e:
     print(e)
@@ -170,6 +182,7 @@ async def edit_member_name_role(message):
 # Wait for member to join, set's role to "UNNAMED" and changes nickname
 @client.event
 async def on_member_join(member):
+  print("New member has joined, adding Unnamed role and display welcome message for member")
   member_roles = member.roles
   member_roles.append(regex_role_ignorecase("Unnamed", member.guild.roles))
   channel = await client.fetch_channel(channel_ID_welcome)
@@ -180,6 +193,7 @@ async def on_member_join(member):
   await channel.send(welcome_msg.format(name=member.mention, welcome=welcome_mention, rules=rules_mention))
 
   try:
+    print("Try editing member roles")
     await member.edit(roles=member_roles)
   except discord.Forbidden as e:
     print(e)
@@ -193,11 +207,12 @@ async def on_member_join(member):
 @client.event
 async def on_message(message):
   if str(message.channel.id) != str(channel_ID_welcome):
+    print("channel id does not match", message.channel.id)
     return
   if message.author.bot:
     return
 
-  await edit_member_name_role(message)
+  await handle_message(message)
 
 
 @client.event
